@@ -1,0 +1,176 @@
+import numpy as np
+from dataclasses import dataclass
+from typing import List, Tuple
+
+
+SPEED_OF_SOUND = 343.0  # m/s
+
+
+@dataclass
+class Mic:
+    x: float
+    y: float
+
+
+def beamform_simulation(
+    signal_freq: float,
+    noise_freq: float,
+    mics: List[Mic],
+    signal_source: Tuple[float, float],
+    noise_source: Tuple[float, float],
+    duration: float = 1.0,
+    sample_rate: int = 48000,
+    beamforming: bool = True,
+    signal_amplitude: float = 1.0,
+    noise_amplitude: float = 0.8,
+    steering_source: Tuple[float, float] | None = None,
+):
+    """
+    Simulates a microphone array receiving:
+      - desired sinewave signal
+      - noise sinewave from another direction
+
+    Performs:
+      - time-of-arrival calculation
+      - optional delay-and-sum beamforming
+      - stereo spatial rendering
+
+    Returns:
+      {
+        "time": np.ndarray,
+        "mono": np.ndarray,
+        "stereo": np.ndarray shape (N, 2),
+        "mic_signals": List[np.ndarray],
+        "signal_delays": List[float],
+        "noise_delays": List[float]
+      }
+    """
+
+    if len(mics) < 1 or len(mics) > 4:
+        raise ValueError("Mic count must be between 1 and 4")
+
+    if steering_source is None:
+        steering_source = signal_source
+
+    t = np.arange(int(duration * sample_rate)) / sample_rate
+
+    signal_source = np.array(signal_source)
+    noise_source = np.array(noise_source)
+    steering_source = np.array(steering_source)
+
+    mic_signals = []
+    signal_delays = []
+    noise_delays = []
+
+    # ------------------------------------------------------------
+    # Generate received signals at each mic
+    # ------------------------------------------------------------
+    for mic in mics:
+        mic_pos = np.array([mic.x, mic.y])
+
+        # Distance to sources
+        d_signal = np.linalg.norm(signal_source - mic_pos)
+        d_noise = np.linalg.norm(noise_source - mic_pos)
+
+        # Time delays
+        signal_delay = d_signal / SPEED_OF_SOUND
+        noise_delay = d_noise / SPEED_OF_SOUND
+
+        signal_delays.append(signal_delay)
+        noise_delays.append(noise_delay)
+
+        # Delayed sinewaves
+        signal_wave = signal_amplitude * np.sin(
+            2 * np.pi * signal_freq * (t - signal_delay)
+        )
+
+        noise_wave = noise_amplitude * np.sin(
+            2 * np.pi * noise_freq * (t - noise_delay)
+        )
+
+        combined = signal_wave + noise_wave
+        mic_signals.append(combined)
+
+    mic_signals = np.array(mic_signals)
+
+    # ------------------------------------------------------------
+    # Delay-and-sum beamforming
+    # ------------------------------------------------------------
+    if beamforming:
+        aligned = []
+
+        for i, mic in enumerate(mics):
+            mic_pos = np.array([mic.x, mic.y])
+
+            d_steer = np.linalg.norm(steering_source - mic_pos)
+            steer_delay = d_steer / SPEED_OF_SOUND
+
+            relative_delay = steer_delay - min(signal_delays)
+
+            shift_samples = int(round(relative_delay * sample_rate))
+
+            shifted = np.roll(mic_signals[i], -shift_samples)
+            aligned.append(shifted)
+
+        aligned = np.array(aligned)
+
+        mono = np.mean(aligned, axis=0)
+
+    else:
+        mono = np.mean(mic_signals, axis=0)
+
+    # ------------------------------------------------------------
+    # Stereo spatialization
+    # ------------------------------------------------------------
+    source_x = signal_source[0]
+
+    # Pan from [-1,1]
+    pan = np.clip(source_x / 5.0, -1.0, 1.0)
+
+    left_gain = np.sqrt((1 - pan) / 2)
+    right_gain = np.sqrt((1 + pan) / 2)
+
+    left = mono * left_gain
+    right = mono * right_gain
+
+    stereo = np.stack([left, right], axis=1)
+
+    return {
+        "time": t,
+        "mono": mono,
+        "stereo": stereo,
+        "mic_signals": mic_signals,
+        "signal_delays": signal_delays,
+        "noise_delays": noise_delays,
+    }
+
+
+# ------------------------------------------------------------------
+# Example usage
+# ------------------------------------------------------------------
+if __name__ == "__main__":
+
+    mics = [
+        Mic(-0.15, 0.0),
+        Mic(-0.05, 0.0),
+        Mic(0.05, 0.0),
+        Mic(0.15, 0.0),
+    ]
+
+    result = beamform_simulation(
+        signal_freq=440.0,
+        noise_freq=1000.0,
+        mics=mics,
+        signal_source=(-2.0, 3.0),
+        noise_source=(3.0, 1.0),
+        duration=2.0,
+        sample_rate=48000,
+        beamforming=True,
+    )
+
+    stereo = result["stereo"]
+
+    print("Stereo", stereo)
+    print("Stereo shape:", stereo.shape)
+    print("Signal delays:", result["signal_delays"])
+    print("Noise delays:", result["noise_delays"])
