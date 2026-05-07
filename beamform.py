@@ -145,6 +145,82 @@ def beamform_simulation(
     }
 
 
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+def plot_beamforming_streams(
+    stereo_stream: np.ndarray,
+    signal_freq: float,
+    noise_freq: float,
+    signal_amplitude: float = 1.0,
+    noise_amplitude: float = 0.8,
+    sample_rate: int = 48000,
+    title: str = "Beamforming Streams",
+):
+    """
+    Plots:
+      1. Pure signal wave
+      2. Pure noise wave
+      3. Left stereo output
+      4. Right stereo output
+
+    Each stream is shown in a different color.
+
+    Parameters
+    ----------
+    stereo_stream : np.ndarray
+        Shape (N,2) stereo output from beamform_simulation()
+
+    signal_freq : float
+    noise_freq : float
+
+    signal_amplitude : float
+    noise_amplitude : float
+
+    sample_rate : int
+
+    title : str
+    """
+
+    if stereo_stream.ndim != 2 or stereo_stream.shape[1] != 2:
+        raise ValueError("stereo_stream must have shape (N,2)")
+
+    n = stereo_stream.shape[0]
+
+    t = np.arange(n) / sample_rate
+
+    # Reference source waves
+    signal_wave = signal_amplitude * np.sin(
+        2 * np.pi * signal_freq * t
+    )
+
+    noise_wave = noise_amplitude * np.sin(
+        2 * np.pi * noise_freq * t
+    )
+
+    left = stereo_stream[:, 0]
+    right = stereo_stream[:, 1]
+
+    plt.figure(figsize=(14, 7))
+
+    plt.plot(t, signal_wave, label="Signal Wave", linewidth=1)
+    plt.plot(t, noise_wave, label="Noise Wave", linewidth=1)
+    plt.plot(t, left, label="Left Output", linewidth=1)
+    plt.plot(t, right, label="Right Output", linewidth=1)
+
+    plt.title(title)
+    plt.xlabel("Time (seconds)")
+    plt.ylabel("Amplitude")
+
+    plt.legend()
+    plt.grid(True)
+
+    plt.tight_layout()
+    plt.show()
+
+
+
 # ------------------------------------------------------------------
 # Example usage
 # ------------------------------------------------------------------
@@ -163,9 +239,9 @@ if __name__ == "__main__":
         mics=mics,
         signal_source=(-2.0, 3.0),
         noise_source=(3.0, 1.0),
-        duration=2.0,
+        duration=0.01,
         sample_rate=48000,
-        beamforming=True,
+        beamforming=False,
     )
 
     stereo = result["stereo"]
@@ -174,3 +250,9 @@ if __name__ == "__main__":
     print("Stereo shape:", stereo.shape)
     print("Signal delays:", result["signal_delays"])
     print("Noise delays:", result["noise_delays"])
+
+    plot_beamforming_streams(
+        stereo_stream=result["stereo"],
+        signal_freq=440,
+        noise_freq=1000,
+    )
