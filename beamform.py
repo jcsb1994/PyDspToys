@@ -11,18 +11,20 @@ class Mic:
     x: float
     y: float
 
+@dataclass
+class Soundwave:
+    freq: float
+    source: Tuple[float, float]
+    amplitude: float
+
 
 def beamform_simulation(
-    signal_freq: float,
-    noise_freq: float,
+    signal : Soundwave,
+    noise : Soundwave,
     mics: List[Mic],
-    signal_source: Tuple[float, float],
-    noise_source: Tuple[float, float],
     duration: float = 1.0,
     sample_rate: int = 48000,
     beamforming: bool = True,
-    signal_amplitude: float = 1.0,
-    noise_amplitude: float = 0.8,
     steering_source: Tuple[float, float] | None = None,
 ):
     """
@@ -50,12 +52,12 @@ def beamform_simulation(
         raise ValueError("Mic count must be between 1 and 4")
 
     if steering_source is None:
-        steering_source = signal_source
+        steering_source = signal.source
 
     t = np.arange(int(duration * sample_rate)) / sample_rate
 
-    signal_source = np.array(signal_source)
-    noise_source = np.array(noise_source)
+    signal.source = np.array(signal.source)
+    noise.source = np.array(noise.source)
     steering_source = np.array(steering_source)
 
     mic_signals = []
@@ -69,8 +71,8 @@ def beamform_simulation(
         mic_pos = np.array([mic.x, mic.y])
 
         # Distance to sources
-        d_signal = np.linalg.norm(signal_source - mic_pos)
-        d_noise = np.linalg.norm(noise_source - mic_pos)
+        d_signal = np.linalg.norm(signal.source - mic_pos)
+        d_noise = np.linalg.norm(noise.source - mic_pos)
 
         # Time delays
         signal_delay = d_signal / SPEED_OF_SOUND
@@ -80,12 +82,12 @@ def beamform_simulation(
         noise_delays.append(noise_delay)
 
         # Delayed sinewaves
-        signal_wave = signal_amplitude * np.sin(
-            2 * np.pi * signal_freq * (t - signal_delay)
+        signal_wave = signal.amplitude * np.sin(
+            2 * np.pi * signal.freq * (t - signal_delay)
         )
 
-        noise_wave = noise_amplitude * np.sin(
-            2 * np.pi * noise_freq * (t - noise_delay)
+        noise_wave = noise.amplitude * np.sin(
+            2 * np.pi * noise.freq * (t - noise_delay)
         )
 
         combined = signal_wave + noise_wave
@@ -122,7 +124,7 @@ def beamform_simulation(
     # ------------------------------------------------------------
     # Stereo spatialization
     # ------------------------------------------------------------
-    source_x = signal_source[0]
+    source_x = signal.source[0]
 
     # Pan from [-1,1]
     pan = np.clip(source_x / 5.0, -1.0, 1.0)
@@ -150,11 +152,9 @@ import matplotlib.pyplot as plt
 
 
 def plot_beamforming_streams(
-    stereo_stream: np.ndarray,
-    signal_freq: float,
-    noise_freq: float,
-    signal_amplitude: float = 1.0,
-    noise_amplitude: float = 0.8,
+    stereo_stream: np.ndarray, # Shape (N,2) stereo output from beamform_simulation()
+    signal: Soundwave,
+    noise: Soundwave,
     sample_rate: int = 48000,
     title: str = "Beamforming Streams",
 ):
@@ -166,21 +166,6 @@ def plot_beamforming_streams(
       4. Right stereo output
 
     Each stream is shown in a different color.
-
-    Parameters
-    ----------
-    stereo_stream : np.ndarray
-        Shape (N,2) stereo output from beamform_simulation()
-
-    signal_freq : float
-    noise_freq : float
-
-    signal_amplitude : float
-    noise_amplitude : float
-
-    sample_rate : int
-
-    title : str
     """
 
     if stereo_stream.ndim != 2 or stereo_stream.shape[1] != 2:
@@ -191,12 +176,12 @@ def plot_beamforming_streams(
     t = np.arange(n) / sample_rate
 
     # Reference source waves
-    signal_wave = signal_amplitude * np.sin(
-        2 * np.pi * signal_freq * t
+    signal_wave = signal.amplitude * np.sin(
+        2 * np.pi * signal.freq * t
     )
 
-    noise_wave = noise_amplitude * np.sin(
-        2 * np.pi * noise_freq * t
+    noise_wave = noise.amplitude * np.sin(
+        2 * np.pi * noise.freq * t
     )
 
     left = stereo_stream[:, 0]
@@ -233,13 +218,14 @@ if __name__ == "__main__":
         Mic(0.15, 0.0),
     ]
 
+    sig = Soundwave(440.0, (-2.0, 3.0), 1.0)
+    nse = Soundwave(6000.0, (2.0, 3.0), 1.0) # Low frequency noise
+
     result = beamform_simulation(
-        signal_freq=440.0,
-        noise_freq=1000.0,
+        signal = sig,
+        noise = nse,
         mics=mics,
-        signal_source=(-2.0, 3.0),
-        noise_source=(3.0, 1.0),
-        duration=0.01,
+        duration=0.03,
         sample_rate=48000,
         beamforming=False,
     )
@@ -253,6 +239,6 @@ if __name__ == "__main__":
 
     plot_beamforming_streams(
         stereo_stream=result["stereo"],
-        signal_freq=440,
-        noise_freq=1000,
+        signal = sig,
+        noise = sig,
     )
