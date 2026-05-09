@@ -1,6 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from typing import List
+from typing import List, Tuple
+from dataclasses import dataclass
+@dataclass
+class Soundwave:
+    freq: float
+    amplitude: float
+    source: Tuple[float, float] = (0.0, 0.0) # 2D space
 
 def complex_wave(frequencies : List[float], duration=1.0, sample_rate=1000):
     t = np.linspace(0, duration, int(sample_rate * duration), endpoint=False)
