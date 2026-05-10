@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import filter
+from wave import Soundwave
+import fft
 
 def limiter_simulator(freq, amplitude, sample_rate, duration, ceiling, plot=False):
     """
@@ -46,50 +48,10 @@ def sine_distortion_analysis(freq, stream, sample_rate, plot=False):
         stream (np.ndarray): Mono audio stream.
         sample_rate (int): Sample rate in Hz.
     """
-    # 1. FFT
-    # ===============================
 
-    # N is the standard name for the length of the input signal in FFT analysis
-    # (Using N and sample rate you can infer the time duration of the input signal)
-    N = len(stream)
-
-    # The bin size is dependent on 2 things: the sample rate and the length of the input signal (N).
-    # The bin size represents the frequency resolution of the FFT and is sample_rate / N
-    # This is because in order to see a frequency component in the FFT output, you need at least one full cycle of that frequency
-    # So for example to see a 0.5Hz (bin size 0.5) N must be double the sample rate
-    bin_size = sample_rate // N
-
-    # This returns a list of size N with bins in the format i+j.
-    # Because of the Nyquist theorem, we can only detect up to sample_rate/2
-    # Only half of the bins are used for 0Hz to Nyquist frequency (other half is the same with negative freqs)
-    fft = np.fft.fft(stream)
-
-    # The frequency bins from np.fft.fftfreq(N, 1/sample_rate) go from 0 up to just below the Nyquist frequency, then from
-    # negative Nyquist back up to just below 0. So, the first half (bin_freqs[:N//2]) corresponds to 0 Hz up to just below the Nyquist frequency
-    pos_freqs_len = N // 2
-    bin_magnitudes = np.abs(fft)
-    bin_freqs = np.fft.fftfreq(N, 1/sample_rate)
-    # We are working with real signals so take the positive frequencies only (the first half of the FFT output)
-    bin_magnitudes = bin_magnitudes[:pos_freqs_len]
-    bin_freqs = bin_freqs[:pos_freqs_len]
-
-    print(f"Bin Size: {bin_size} Hz")
-    print(f"Number of Bins: {len(bin_freqs)}")
-    print(f"Frequency of first few bins: {bin_freqs[:10]} Hz")
-    print(f"Magnitudes of first few bins: {bin_magnitudes[:10]}")
-
-    # 2. Analysis
-    # ===============================
-
-    # Plot the frequency spectrum for visualization
+    bin_freqs, bin_magnitudes = fft.fft(stream, sample_rate)
     if plot:
-        plt.figure(figsize=(10, 4))
-        plt.plot(bin_freqs, 20 * np.log10(bin_magnitudes + 1e-12))
-        plt.title("Frequency Spectrum")
-        plt.xlabel("Frequency (Hz)")
-        plt.ylabel("Magnitude (dB)")
-        plt.grid()
-        plt.show()
+        fft.fft_plt(bin_freqs, bin_magnitudes)
 
     # Find the peak frequency (it should be close to the expected frequency if it's a pure sine wave)
     peak_idx = np.argmax(bin_magnitudes)
@@ -121,22 +83,11 @@ def sine_distortion_analysis(freq, stream, sample_rate, plot=False):
 
     if suspect_distortion:
         # Apply a LPF
+        # 8th-order filter drops at 48 dB per octave (each octave doubles the frequency)
         stream = filter.lpf(stream, sample_rate, freq, order=8) # Input sine will be -3dB (cutoff) but we can filter out harmonics
-        fft = np.fft.fft(stream)
-        pos_freqs_len = N // 2
-        bin_magnitudes = np.abs(fft)
-        bin_freqs = np.fft.fftfreq(N, 1/sample_rate)
-        bin_magnitudes = bin_magnitudes[:pos_freqs_len]
-        bin_freqs = bin_freqs[:pos_freqs_len]
+        bin_freqs, bin_magnitudes = fft.fft(stream, sample_rate)
         if plot:
-            plt.figure(figsize=(10, 4))
-            plt.plot(bin_freqs, 20 * np.log10(bin_magnitudes + 1e-12))
-            plt.title("Frequency Spectrum")
-            plt.xlabel("Frequency (Hz)")
-            plt.ylabel("Magnitude (dB)")
-            plt.grid()
-            plt.show()
-
+            fft.fft_plt(bin_freqs, bin_magnitudes)
 
     print(f"Peak Frequency: {peak_freq:.2f} Hz")
     print(f"Harmonic Ratio: {harmonic_ratio:.4f}")
@@ -153,7 +104,8 @@ def sine_distortion_analysis(freq, stream, sample_rate, plot=False):
 
 if __name__ == "__main__":
     sample_rate = 48000
-    limited = limiter_simulator(freq=440, amplitude=1.2, sample_rate=sample_rate, duration=0.02, ceiling=1.0, plot=False)
-    sine_distortion_analysis(freq=440, stream=limited, sample_rate=sample_rate, plot=True)
+    sine = Soundwave(freq=440, amplitude=1.2)
 
-    # print(limited)
+    limited = limiter_simulator(freq=sine.freq, amplitude=sine.amplitude, sample_rate=sample_rate, duration=0.02, ceiling=1.0, plot=False)
+    sine_distortion_analysis(freq=sine.freq, stream=limited, sample_rate=sample_rate, plot=True)
+

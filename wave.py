@@ -7,6 +7,10 @@ class Soundwave:
     freq: float
     amplitude: float
     source: Tuple[float, float] = (0.0, 0.0) # 2D space
+    def generate(self, sample_rate, duration):
+        t = np.arange(int(sample_rate * duration)) / sample_rate
+        wave = self.amplitude * np.sin(2 * np.pi * self.freq * t)
+        return wave
 
 def complex_wave(frequencies : List[float], duration=1.0, sample_rate=1000):
     t = np.linspace(0, duration, int(sample_rate * duration), endpoint=False)
