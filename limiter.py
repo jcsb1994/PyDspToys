@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-
+import filter
 
 def limiter_simulator(freq, amplitude, sample_rate, duration, ceiling, plot=False):
     """
@@ -105,17 +105,37 @@ def sine_distortion_analysis(freq, stream, sample_rate, plot=False):
 
     # Flag if any significant harmonics are odd harmonics (which are more indicative of distortion / aliasing)
     print("Harmonics:", harmonics)
+    suspect_distortion = False
     for h in harmonics:
         # For each harmonic, check if there is a significant peak within accepted margin of any odd harmonic multiple
         for i in range(lowest_harmonic_checked, highest_harmonic_checked+1):
             curr_odd_multiple = freq * (i if i % 2 == 1 else i + 1)  # Check odd multiples (1st, 3rd, 5th, etc.)
             percentage_accepted = 0.1
-            above_10_percent_of_fundamental_multiple = h > (curr_odd_multiple - (freq * percentage_accepted))
-            below_10_percent_of_fundamental_multiple = h < (curr_odd_multiple + (freq * percentage_accepted))
+            above_accepted_of_fundamental_multiple = h > (curr_odd_multiple - (freq * percentage_accepted))
+            below_accepted_of_fundamental_multiple = h < (curr_odd_multiple + (freq * percentage_accepted))
 
-            if below_10_percent_of_fundamental_multiple and above_10_percent_of_fundamental_multiple:
+            if below_accepted_of_fundamental_multiple and above_accepted_of_fundamental_multiple:
                 print(f"Warning: Significant odd harmonic detected at {h:.2f} Hz")
+                suspect_distortion = True
                 break
+
+    if suspect_distortion:
+        # Apply a LPF
+        stream = filter.lpf(stream, sample_rate, freq, order=8) # Input sine will be -3dB (cutoff) but we can filter out harmonics
+        fft = np.fft.fft(stream)
+        pos_freqs_len = N // 2
+        bin_magnitudes = np.abs(fft)
+        bin_freqs = np.fft.fftfreq(N, 1/sample_rate)
+        bin_magnitudes = bin_magnitudes[:pos_freqs_len]
+        bin_freqs = bin_freqs[:pos_freqs_len]
+        if plot:
+            plt.figure(figsize=(10, 4))
+            plt.plot(bin_freqs, 20 * np.log10(bin_magnitudes + 1e-12))
+            plt.title("Frequency Spectrum")
+            plt.xlabel("Frequency (Hz)")
+            plt.ylabel("Magnitude (dB)")
+            plt.grid()
+            plt.show()
 
 
     print(f"Peak Frequency: {peak_freq:.2f} Hz")
