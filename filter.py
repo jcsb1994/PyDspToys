@@ -3,67 +3,51 @@ from scipy.signal import butter, sosfilt
 
 from wave import Soundwave
 import fft
+import analysis as anls
 
-def comb_filter_sine(
-    sine: Soundwave,
-    delay_ms: float,
-    sample_rate: int,
-    duration: float = 1.0,
-    mix: float = 1.0,
-):
+def align_signals(audio1, audio2, sample_rate):
+    lag, _ = anls.estimate_delay(audio1, audio2, sample_rate)
+
+    if lag > 0:
+        audio2_aligned = audio2[lag:]
+        audio_aligned = audio1[:len(audio2_aligned)]
+    elif lag < 0:
+        audio_aligned = audio1[-lag:]
+        audio2_aligned = audio2[:len(audio_aligned)]
+    else:
+        audio_aligned = audio1
+        audio2_aligned = audio2
+
+    return audio_aligned, audio2_aligned, lag
+
+def efficient_dcblock_filter(audio):
     """
-    Creates a comb-filtered sine wave by mixing the original
-    with a delayed copy.
+    This filter simply subtracts the average from the signal.
+    For real time signals, this method would use a moving average instead,
+    but it is an efficient way to remove DC components without phase shifting and with a very low cutoff.
+    This may be favored over a SW HPF if we really just want to filter out DC in a resource constrained system.
     """
-    # Create the sine wave using our custom sound wave class
-    original = sine.generate(sample_rate, duration)
+    audio = audio - np.mean(audio)
 
-    # Delay conversion
-    delay_samples = int(delay_ms * sample_rate / 1000)
-
-    # Create delayed copy
-    delayed = np.zeros_like(original)
-
-    if delay_samples < len(original):
-        delayed[delay_samples:] = original[:-delay_samples]
-
-    # Mix original + delayed
-    output = original + (mix * delayed)
-
-    # Comb filter spacing
-    delay_sec = delay_ms / 1000
-    spacing_hz = 1 / delay_sec
-
-    print(f"\nComb Filter Info")
-    print(f"----------------")
-    print(f"Delay: {delay_ms:.3f} ms")
-    print(f"Delay samples: {delay_samples}")
-    print(f"Comb spacing: {spacing_hz:.2f} Hz")
-
-    print("\nBoost frequencies:")
-    for n in range(6):
-        boost_freq = n * spacing_hz
-        print(f"  {boost_freq:.2f} Hz")
-
-    print("\nNotch frequencies:")
-    for n in range(6):
-        notch_freq = (n + 0.5) * spacing_hz
-        print(f"  {notch_freq:.2f} Hz")
-
-    return output
-
-def lpf(audio, sample_rate, cutoff_freq, order):
+def one_band_pass_filter(audio, sample_rate, cutoff_freq, order, high=False):
+    """
+    Either a LPF or HPF
+    """
 
     nyquist = sample_rate * 0.5
 
     if cutoff_freq >= nyquist:
         raise ValueError("cutoff_freq must be below Nyquist frequency")
 
+    ftype = "low"
+    if high:
+        ftype = "high"
+
     # Create stable Butterworth LPF using second-order sections
     sos = butter(
         N=order,
         Wn=cutoff_freq,
-        btype="low",
+        btype=ftype,
         fs=sample_rate,
         output="sos"
     )
@@ -90,8 +74,13 @@ def lpf(audio, sample_rate, cutoff_freq, order):
 if __name__ == "__main__":
     sample_rate = 48000
     sine = Soundwave(freq=10000, amplitude=1.2)
+    sinewave = sine.generate(sample_rate, 0.2)
 
     # Delay of 1 ms means the delta f will be 1kHz, notches will be every x.5kHz
     combed = comb_filter_sine(sine=sine, delay_ms=1, sample_rate=sample_rate, duration=0.02)
-    bin_freqs, bin_magnitudes = fft.fft(combed, sample_rate)
+
+    # sinewave = add_dc_offset(sinewave, 50)
+    # sinewave = one_band_pass_filter(sinewave, sample_rate, 1000, 4)
+
+    bin_freqs, bin_magnitudes = fft.fft(sinewave, sample_rate)
     fft.fft_plt(bin_freqs, bin_magnitudes)
