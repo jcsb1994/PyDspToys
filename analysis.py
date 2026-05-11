@@ -1,8 +1,10 @@
 
 # Libs
 import numpy as np
+import matplotlib.pyplot as plt
 # App
 import fft
+import filter as filt
 
 def estimate_delay(audio1, audio2, sample_rate):
     """
@@ -26,6 +28,15 @@ def estimate_delay(audio1, audio2, sample_rate):
 
     return lag, delay_sec
 
+def plot_time_domain(stream):
+    plt.figure(figsize=(10, 4))
+    plt.plot(stream)
+    plt.title("Time domain of signal")
+    plt.xlabel("Time (s)")
+    plt.ylabel("Magnitude (dB)")
+    plt.grid()
+    plt.show()
+
 def sine_distortion_analysis(freq, stream, sample_rate, plot=False):
     """
     Analyze a mono stream for sine distortion.
@@ -34,6 +45,8 @@ def sine_distortion_analysis(freq, stream, sample_rate, plot=False):
         freq (float): Expected sine frequency in Hz.
         stream (np.ndarray): Mono audio stream.
         sample_rate (int): Sample rate in Hz.
+
+    TODO: too many things happen in this function, it is an analysis yet it alters the input signal, must divide in fcts
     """
 
     bin_freqs, bin_magnitudes = fft.fft(stream, sample_rate)
@@ -71,7 +84,7 @@ def sine_distortion_analysis(freq, stream, sample_rate, plot=False):
     if suspect_distortion:
         # Apply a LPF
         # 8th-order filter drops at 48 dB per octave (each octave doubles the frequency)
-        stream = filter.lpf(stream, sample_rate, freq, order=8) # Input sine will be -3dB (cutoff) but we can filter out harmonics
+        stream = filt.one_band_pass_filter(stream, sample_rate, freq, order=8) # Input sine will be -3dB (cutoff) but we can filter out harmonics
         bin_freqs, bin_magnitudes = fft.fft(stream, sample_rate)
         if plot:
             fft.fft_plt(bin_freqs, bin_magnitudes)

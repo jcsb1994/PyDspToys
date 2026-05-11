@@ -9,14 +9,7 @@ import analysis as anls
 
 def limiter(freq, amplitude, sample_rate, duration, ceiling, plot=False):
     """
-    Simulate a mono audio limiter on a sine wave.
-
-    Args:
-        freq (float): Frequency of the sine wave in Hz.
-        amplitude (float): Amplitude of the sine wave (0.0 to 1.0).
-        sample_rate (int): Sample rate in Hz.
-        duration (float): Duration of the simulation in seconds.
-        ceiling (float): Limiter ceiling (max output amplitude, 0.0 to 1.0).
+    Apply a limiter on a sine wave.
 
     Returns:
         np.ndarray: Limited mono audio stream.
@@ -40,10 +33,4 @@ def limiter(freq, amplitude, sample_rate, duration, ceiling, plot=False):
 
     return limited
 
-if __name__ == "__main__":
-    sample_rate = 48000
-    sine = Soundwave(freq=440, amplitude=1.2)
-
-    limited = limiter(freq=sine.freq, amplitude=sine.amplitude, sample_rate=sample_rate, duration=0.02, ceiling=1.0, plot=False)
-    anls.sine_distortion_analysis(freq=sine.freq, stream=limited, sample_rate=sample_rate, plot=True)
 

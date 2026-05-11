@@ -28,6 +28,7 @@ def efficient_dcblock_filter(audio):
     This may be favored over a SW HPF if we really just want to filter out DC in a resource constrained system.
     """
     audio = audio - np.mean(audio)
+    return audio
 
 def one_band_pass_filter(audio, sample_rate, cutoff_freq, order, high=False):
     """
@@ -69,18 +70,3 @@ def one_band_pass_filter(audio, sample_rate, cutoff_freq, order, high=False):
 
     else:
         raise ValueError("audio must be 1D (mono) or 2D (multichannel)")
-
-
-if __name__ == "__main__":
-    sample_rate = 48000
-    sine = Soundwave(freq=10000, amplitude=1.2)
-    sinewave = sine.generate(sample_rate, 0.2)
-
-    # Delay of 1 ms means the delta f will be 1kHz, notches will be every x.5kHz
-    combed = comb_filter_sine(sine=sine, delay_ms=1, sample_rate=sample_rate, duration=0.02)
-
-    # sinewave = add_dc_offset(sinewave, 50)
-    # sinewave = one_band_pass_filter(sinewave, sample_rate, 1000, 4)
-
-    bin_freqs, bin_magnitudes = fft.fft(sinewave, sample_rate)
-    fft.fft_plt(bin_freqs, bin_magnitudes)
