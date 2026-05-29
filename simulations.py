@@ -92,7 +92,7 @@ def main():
         anls.plot_time_domain(audio_stream)
 
     elif args.simulation == "limiter":
-        limited = dyn.limiter(freq=sine.freq, amplitude=sine.amplitude, sample_rate=sample_rate, duration=0.02, ceiling=1.0, plot=True)
+        limited = dyn.limiter(freq=sine.freq, amplitude=sine.amplitude, sample_rate=sample_rate, duration=duration, ceiling=1.0, plot=True)
         anls.sine_distortion_analysis(freq=sine.freq, stream=limited, sample_rate=sample_rate, plot=True)
 
     elif args.simulation == "dcblock":
@@ -100,6 +100,8 @@ def main():
         Simulation adds DC components, then removes them
         """
         audio_stream = noise.add_dc_offset(audio_stream, 50)
+        bin_freqs, bin_magnitudes = fft.fft(audio_stream, sample_rate)
+        fft.fft_plt(bin_freqs, bin_magnitudes)
         audio_stream = filt.efficient_dcblock_filter(audio_stream)
         # audio_stream = filt.one_band_pass_filter(audio_stream, sample_rate, cutoff_freq=1000, order=4)
         bin_freqs, bin_magnitudes = fft.fft(audio_stream, sample_rate)
