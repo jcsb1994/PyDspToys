@@ -1,6 +1,8 @@
 # Libs
 import argparse
 import numpy as np
+from scipy import signal
+import matplotlib.pyplot as plt
 # App
 from wave import Soundwave, gen_inpulse
 import dynamics as dyn
@@ -13,15 +15,20 @@ sample_rate = 0
 duration = 0
 
 stage_options = {
+    # Signal and noise
+    "dc": lambda audio_stream, stg_args: ( # Args: 0:offset
+        noise.add_dc_offset(audio_stream, float(stg_args[0]))),
+    "sine": lambda audio_stream, stg_args: (
+        audio_stream + Soundwave(freq=float(stg_args[0]), amplitude=float(stg_args[1])).generate(sample_rate, duration)),
+    # Processing
+    "limiter": lambda audio_stream, stg_args: ( # Args: 0:ceiling
+        np.clip(audio_stream, -float(stg_args[0]), float(stg_args[0]))),
+    # Analysis
     "fft": lambda audio_stream, stg_args: (
         (res := fft.fft(audio_stream, sample_rate)),
         fft.fft_plt(*res)),
-    "dc": lambda audio_stream, stg_args: (
-        (res := noise.add_dc_offset(audio_stream, float(stg_args[0])))),
-    "sine": lambda audio_stream, stg_args: (
-        audio_stream + Soundwave(freq=float(stg_args[0]), amplitude=float(stg_args[1])).generate(sample_rate, duration)
-    ),
-
+    "spectrogram": lambda audio_stream, stg_args: (
+        fft.spectrogram_plt(audio_stream, sample_rate))
 }
 
 def main():

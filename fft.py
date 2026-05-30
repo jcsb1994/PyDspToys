@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy import signal
 
 def fft(stream, sample_rate):
 
@@ -41,4 +42,11 @@ def fft_plt(bin_freqs, bin_magnitudes):
     plt.xlabel("Frequency (Hz)")
     plt.ylabel("Magnitude (dB)")
     plt.grid()
+    plt.show()
+
+def spectrogram_plt(stream, sample_rate):
+    f, t, Sxx = signal.spectrogram(stream, sample_rate)
+    plt.pcolormesh(t, f, 10 * np.log10(Sxx), shading='gouraud')
+    plt.ylabel('Frequency [Hz]')
+    plt.xlabel('Time [sec]')
     plt.show()
