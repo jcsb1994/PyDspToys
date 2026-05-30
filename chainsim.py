@@ -23,19 +23,25 @@ stage_options = {
     # Processing
     "limiter": lambda audio_stream, stg_args: ( # Args: 0:ceiling
         np.clip(audio_stream, -float(stg_args[0]), float(stg_args[0]))),
-    # Analysis
+    "bitcrush": lambda audio_stream, stg_args: (
+        (steps := 2 ** int(stg_args[0]) - 1), # bit nb
+        np.round((audio_stream + 1) / 2 * steps) / steps * 2 - 1)[-1], # Normalize to 0-1, quantize, and scale back, -1 to return just the last line
+        # Analysis
     "fft": lambda audio_stream, stg_args: (
         (res := fft.fft(audio_stream, sample_rate)),
-        fft.fft_plt(*res)),
+        fft.fft_plt(*res), audio_stream),
     "spectrogram": lambda audio_stream, stg_args: (
-        fft.spectrogram_plt(audio_stream, sample_rate))
+        fft.spectrogram_plt(audio_stream, sample_rate), audio_stream),
+    "timeplot": lambda audio_stream, stg_args: (
+        plt.plot(audio_stream), plt.show(), audio_stream
+    )
 }
 
 def main():
     global verbose, sample_rate, duration
     parser = argparse.ArgumentParser(description="Script to run various DSP simulations for testing purposes")
     parser.add_argument('--chain', '-c', type=str, required=True, help='The chain to run, coma-separated')
-    parser.add_argument('--duration', '-d', type=float, default=0.1, help='Duration of the simulation in seconds')
+    parser.add_argument('--duration', '-d', type=float, default=0.01, help='Duration of the simulation in seconds')
     parser.add_argument('--sample_rate', '-r', type=int, default=48000, help='Sample rate of the input signal')
     # Debug
     parser.add_argument('--verbose', action='store_true', help='Enable verbose print statement for debugging the script')
