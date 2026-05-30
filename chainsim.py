@@ -9,14 +9,23 @@ import noise
 import analysis as anls
 import fft
 
+sample_rate = 0
+duration = 0
+
 stage_options = {
-    "dc": noise.add_dc_offset,
-    "sine": noise.add_dc_offset,
+    "fft": lambda audio_stream, stg_args: (
+        (res := fft.fft(audio_stream, sample_rate)),
+        fft.fft_plt(*res)),
+    "dc": lambda audio_stream, stg_args: (
+        (res := noise.add_dc_offset(audio_stream, float(stg_args[0])))),
+    "sine": lambda audio_stream, stg_args: (
+        audio_stream + Soundwave(freq=float(stg_args[0]), amplitude=float(stg_args[1])).generate(sample_rate, duration)
+    ),
+
 }
 
-
 def main():
-    global verbose
+    global verbose, sample_rate, duration
     parser = argparse.ArgumentParser(description="Script to run various DSP simulations for testing purposes")
     parser.add_argument('--chain', '-c', type=str, required=True, help='The chain to run, coma-separated')
     parser.add_argument('--duration', '-d', type=float, default=0.1, help='Duration of the simulation in seconds')
@@ -35,11 +44,12 @@ def main():
 
     stages = args.chain.split("->")
     audio_stream = np.zeros(int(duration * sample_rate))
-    print(stages)
+
     for stage in stages:
-        audio_stream = stage_options[stage](audio_stream, 50)
-    bin_freqs, bin_magnitudes = fft.fft(audio_stream, sample_rate)
-    fft.fft_plt(bin_freqs, bin_magnitudes)
+        if stage.endswith(")"):
+            stage, raw_args = stage.split("(", 1)
+            stg_args = raw_args.rstrip(")").split(",")
+        audio_stream = stage_options[stage](audio_stream, stg_args)
 
     return
 
