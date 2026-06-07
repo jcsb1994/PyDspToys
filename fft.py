@@ -35,7 +35,49 @@ def fft(stream, sample_rate):
 
     return bin_freqs, bin_magnitudes
 
+def fft_stereo_plot(stream, sample_rate, display_option="overlay"):
+    nb_chans = len(stream)
+    bin_freqs = []
+    bin_magnitudes = []
+    if display_option == "mono":
+        stream = np.mean(stream, axis=0)
+        nb_chans = 1
+    elif display_option == "overlay":
+        pass
+
+    for i in range (nb_chans):
+        freqs, magnitudes = fft(stream[i], sample_rate)
+        bin_freqs.append(freqs)
+        bin_magnitudes.append(magnitudes)
+
+    fft_plt(bin_freqs, bin_magnitudes)
+    return stream
+
+
+
 def fft_plt(bin_freqs, bin_magnitudes):
+    if len(bin_freqs) != len(bin_magnitudes):
+        ValueError("Sizes not matching for bins")
+    nb_chans = len(bin_freqs)
+    plt.figure(figsize=(10, 4))
+    for i in range(nb_chans):
+        freqs = bin_freqs[i]
+        mags = bin_magnitudes[i]
+        plt.plot(freqs, 20 * np.log10(mags + 1e-12))
+    plt.title("Frequency Spectrum")
+    plt.xlabel("Frequency (Hz)")
+    plt.ylabel("Magnitude (dB)")
+    plt.grid()
+    plt.show()
+
+
+def fft_calc_and_plt(audio_stream, display_option="overlay"):
+    if display_option == "mono":
+        stream = np.mean(stream, axis=0)
+    elif display_option == "overlay":
+        pass
+    fft(stream, sample_rate)
+
     plt.figure(figsize=(10, 4))
     plt.plot(bin_freqs, 20 * np.log10(bin_magnitudes + 1e-12))
     plt.title("Frequency Spectrum")
@@ -43,6 +85,7 @@ def fft_plt(bin_freqs, bin_magnitudes):
     plt.ylabel("Magnitude (dB)")
     plt.grid()
     plt.show()
+
 
 def spectrogram_plt(stream, sample_rate):
     f, t, Sxx = signal.spectrogram(stream, sample_rate)
